@@ -40,5 +40,10 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Brain Dump v3", lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+
+@app.get("/healthz")
+async def healthz():
+    return {"status": "ok"}
+
 app.include_router(router)
 app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
