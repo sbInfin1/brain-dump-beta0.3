@@ -1,4 +1,5 @@
 from collections.abc import AsyncIterator
+from datetime import datetime, timezone
 
 from openai import OpenAI
 
@@ -13,9 +14,12 @@ _EMPTY_SYSTEM = (
 )
 
 _ANSWER_SYSTEM_TEMPLATE = """\
-You are a personal knowledge assistant. Answer the user's question using ONLY \
-the information in the notes below. If the notes do not contain enough information \
-to answer, say so clearly. Be concise. Cite which notes you draw from (Note 1, Note 2, etc.).
+You are a personal knowledge assistant. Today's date is {today}.
+Answer the user's question using ONLY the information in the notes below. \
+If a note uses relative words like "today", "tomorrow", or "this week", interpret them \
+relative to the date the note was saved (shown in parentheses), NOT today's date. \
+If the notes do not contain enough information to answer, say so clearly. \
+Be concise. Cite which notes you draw from (Note 1, Note 2, etc.).
 
 Notes:
 ---
@@ -35,7 +39,8 @@ class AnswerGenerator:
                 f"Note {i + 1} (saved {n.created_at[:10]}):\n{n.content}"
                 for i, n in enumerate(context_notes)
             )
-            system = _ANSWER_SYSTEM_TEMPLATE.format(notes_section=notes_section)
+            today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+            system = _ANSWER_SYSTEM_TEMPLATE.format(today=today, notes_section=notes_section)
         else:
             system = _EMPTY_SYSTEM
 

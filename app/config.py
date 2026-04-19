@@ -5,6 +5,7 @@ from pydantic_settings import BaseSettings
 
 class Settings(BaseSettings):
     openrouter_api_key: str
+    google_client_id: str
     data_dir: str = "./data"
     top_k: int = 5
     # intent_model: str = "google/gemma-3-27b-it:free"

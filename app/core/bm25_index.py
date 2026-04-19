@@ -1,4 +1,5 @@
 import re
+from datetime import datetime, timezone
 
 from rank_bm25 import BM25Okapi
 
@@ -11,6 +12,14 @@ def _tokenize(text: str) -> list[str]:
     return [t for t in text.split() if len(t) > 1]
 
 
+def _note_text(note: Note) -> str:
+    date = note.created_at[:10]  # "YYYY-MM-DD"
+    year, month, day = date.split("-")
+    day_name = datetime.fromisoformat(note.created_at.rstrip("Z")).strftime("%A").lower()
+    date_tokens = f"{date} {year} {month} {day} {day_name}"
+    return note.content + " " + " ".join(note.tags) + " " + date_tokens
+
+
 class BM25Index:
     def __init__(self):
         self._notes: list[Note] = []
@@ -21,7 +30,7 @@ class BM25Index:
         if not notes:
             self._bm25 = None
             return
-        corpus = [_tokenize(n.content + " " + " ".join(n.tags)) for n in notes]
+        corpus = [_tokenize(_note_text(n)) for n in notes]
         self._bm25 = BM25Okapi(corpus)
 
     def search(self, query: str, top_k: int = 5) -> list[Note]:
@@ -38,7 +47,7 @@ class BM25Index:
 
     def add(self, note: Note) -> None:
         self._notes.append(note)
-        corpus = [_tokenize(n.content + " " + " ".join(n.tags)) for n in self._notes]
+        corpus = [_tokenize(_note_text(n)) for n in self._notes]
         self._bm25 = BM25Okapi(corpus)
 
     @property

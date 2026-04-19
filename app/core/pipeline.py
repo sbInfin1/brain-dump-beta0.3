@@ -27,26 +27,22 @@ class Pipeline:
     def __init__(
         self,
         classifier: IntentClassifier,
-        bm25_index: BM25Index,
-        note_store: NoteStore,
         answer_gen: AnswerGenerator,
         top_k: int = 5,
     ):
         self._classifier = classifier
-        self._index = bm25_index
-        self._store = note_store
         self._answer_gen = answer_gen
         self._top_k = top_k
 
-    async def handle(self, message: str) -> PipelineResult:
+    async def handle(self, message: str, store: NoteStore, index: BM25Index) -> PipelineResult:
         intent = await self._classifier.classify(message)
 
         if intent.intent == "store":
             note = Note.from_user_input(content=intent.content, tags=intent.tags)
-            await asyncio.to_thread(self._store.save, note)
-            self._index.add(note)
+            await asyncio.to_thread(store.save, note)
+            index.add(note)
             return StoreResult(note=note)
 
-        retrieved = self._index.search(intent.content, top_k=self._top_k)
+        retrieved = index.search(intent.content, top_k=self._top_k)
         stream = await self._answer_gen.stream(intent.content, retrieved)
         return QueryResult(retrieved_notes=retrieved, stream=stream)
