@@ -2,7 +2,6 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from openai import OpenAI
 
 from app.api.routes import router
@@ -46,4 +45,3 @@ async def healthz():
     return {"status": "ok"}
 
 app.include_router(router)
-app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
