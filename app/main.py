@@ -31,6 +31,14 @@ async def lifespan(app: FastAPI):
                     source TEXT NOT NULL DEFAULT 'chat'
                 );
                 CREATE INDEX IF NOT EXISTS idx_notes_user_email ON notes(user_email);
+                CREATE TABLE IF NOT EXISTS messages (
+                    id TEXT PRIMARY KEY,
+                    user_email TEXT NOT NULL,
+                    role TEXT NOT NULL,
+                    content TEXT NOT NULL,
+                    created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+                );
+                CREATE INDEX IF NOT EXISTS idx_messages_user_email_created ON messages(user_email, created_at);
             """)
         conn.commit()
     finally:

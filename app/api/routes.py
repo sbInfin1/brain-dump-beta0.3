@@ -1,3 +1,4 @@
+import asyncio
 import json
 from typing import Optional
 
@@ -5,10 +6,11 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from pydantic import BaseModel
 
-from app.api.deps import get_user_store
-from app.auth import get_current_user
+from app.api.deps import get_message_store, get_user_store
 from app.core.bm25_index import BM25Index
 from app.core.pipeline import Pipeline, QueryResult, StoreResult
+from app.storage.message_store import MessageStore
+from app.storage.models import ChatMessage
 from app.storage.note_store import NoteStore
 
 
@@ -24,23 +26,43 @@ async def chat(
     body: ChatRequest,
     request: Request,
     store_pair: tuple[NoteStore, BM25Index] = Depends(get_user_store),
+    msg_store: MessageStore = Depends(get_message_store),
 ):
     store, index = store_pair
     pipeline: Pipeline = request.app.state.pipeline
+
+    await asyncio.to_thread(msg_store.save, ChatMessage.new(role="user", content=body.message.strip()))
+
     result = await pipeline.handle(body.message.strip(), store, index)
 
     if isinstance(result, StoreResult):
+        tags = result.note.tags
+        tag_str = f" [{', '.join(tags)}]" if tags else ""
+        preview = result.note.content[:80] + ("…" if len(result.note.content) > 80 else "")
+        system_text = f'Saved note{tag_str}: "{preview}"'
+        await asyncio.to_thread(msg_store.save, ChatMessage.new(role="system", content=system_text))
         return JSONResponse({"type": "stored", "note": result.note.model_dump()})
 
     async def event_stream():
+        chunks: list[str] = []
         try:
             async for chunk in result.stream:
+                chunks.append(chunk)
                 yield f"data: {json.dumps({'type': 'chunk', 'text': chunk})}\n\n"
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'text': str(e)})}\n\n"
+        if chunks:
+            await asyncio.to_thread(
+                msg_store.save, ChatMessage.new(role="assistant", content="".join(chunks))
+            )
         yield "data: [DONE]\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@router.get("/api/messages")
+async def get_messages(msg_store: MessageStore = Depends(get_message_store)):
+    return [m.model_dump() for m in msg_store.load_all()]
 
 
 @router.get("/api/notes")

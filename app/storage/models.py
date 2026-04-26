@@ -18,3 +18,19 @@ class Note(BaseModel):
             created_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
             tags=tags,
         )
+
+
+class ChatMessage(BaseModel):
+    id: str
+    role: str
+    content: str
+    created_at: str
+
+    @classmethod
+    def new(cls, role: str, content: str) -> "ChatMessage":
+        return cls(
+            id=uuid.uuid4().hex,
+            role=role,
+            content=content,
+            created_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+        )

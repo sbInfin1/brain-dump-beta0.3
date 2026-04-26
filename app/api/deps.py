@@ -2,6 +2,7 @@ from fastapi import Depends, Request
 
 from app.auth import get_current_user
 from app.core.bm25_index import BM25Index
+from app.storage.message_store import MessageStore
 from app.storage.note_store import NoteStore
 
 
@@ -16,3 +17,10 @@ def get_user_store(
         index.build(store.load())
         stores[user] = (store, index)
     return stores[user]
+
+
+def get_message_store(
+    user: str = Depends(get_current_user),
+    request: Request = None,
+) -> MessageStore:
+    return MessageStore(user_email=user, pool=request.app.state.db_pool)
