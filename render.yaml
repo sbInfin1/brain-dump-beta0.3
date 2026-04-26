@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: brain-dump-v3
+    runtime: docker
+    healthCheckPath: /healthz
+    envVars:
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: DATABASE_URL
+        sync: false
