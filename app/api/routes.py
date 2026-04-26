@@ -3,7 +3,7 @@ import json
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 
 from app.api.deps import get_message_store, get_user_store
@@ -31,19 +31,24 @@ async def chat(
     store, index = store_pair
     pipeline: Pipeline = request.app.state.pipeline
 
-    await asyncio.to_thread(msg_store.save, ChatMessage.new(role="user", content=body.message.strip()))
-
-    result = await pipeline.handle(body.message.strip(), store, index)
-
-    if isinstance(result, StoreResult):
-        tags = result.note.tags
-        tag_str = f" [{', '.join(tags)}]" if tags else ""
-        preview = result.note.content[:80] + ("…" if len(result.note.content) > 80 else "")
-        system_text = f'Saved note{tag_str}: "{preview}"'
-        await asyncio.to_thread(msg_store.save, ChatMessage.new(role="system", content=system_text))
-        return JSONResponse({"type": "stored", "note": result.note.model_dump()})
-
     async def event_stream():
+        # Send immediately so mobile browsers don't timeout waiting for first byte
+        yield f"data: {json.dumps({'type': 'ping'})}\n\n"
+
+        await asyncio.to_thread(msg_store.save, ChatMessage.new(role="user", content=body.message.strip()))
+
+        result = await pipeline.handle(body.message.strip(), store, index)
+
+        if isinstance(result, StoreResult):
+            tags = result.note.tags
+            tag_str = f" [{', '.join(tags)}]" if tags else ""
+            preview = result.note.content[:80] + ("…" if len(result.note.content) > 80 else "")
+            system_text = f'Saved note{tag_str}: "{preview}"'
+            await asyncio.to_thread(msg_store.save, ChatMessage.new(role="system", content=system_text))
+            yield f"data: {json.dumps({'type': 'stored', 'note': result.note.model_dump()})}\n\n"
+            yield "data: [DONE]\n\n"
+            return
+
         chunks: list[str] = []
         try:
             async for chunk in result.stream:
